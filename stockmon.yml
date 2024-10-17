@@ -1,0 +1,17 @@
+# Email setup (SMTP settings)
+email:
+  server: your.smtp.server
+  port: 465
+  user: user@server.com
+  password: password
+  sender: sender@email.com
+  recipient: recipient@email.com
+# Period for price checking:  1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max
+period: 1d
+# Tickers and thresholds to alert when price goes below
+# Use tickers from Yahoo Finance, e.g: BMW -> BMW.MU
+low_thresholds:
+  MMM: 95
+# Tickers and thresholds to alert when price goes above
+high_thresholds:
+  BMW.MU: 200

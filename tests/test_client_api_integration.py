@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import requests
 
-from client.main import call_api
+from client.main import call_api, get_api_url
 
 
 class TestCallApiIntegration(unittest.TestCase):
@@ -214,10 +214,19 @@ class TestCallApiIntegration(unittest.TestCase):
         self.assertEqual(len(response["alerts"]), 1)
         self.assertEqual(response["alerts"][0]["ticker"], "AAPL")
 
-    @patch.dict(os.environ, {"API_KEY": "test-api-key-12345"})
+    @patch.dict(
+        os.environ,
+        {"API_KEY": "test-api-key-12345"},
+        clear=False,
+    )
     @patch("requests.post")
     def test_call_api_full_payload_structure(self, mock_post: MagicMock) -> None:
-        """Test that the request payload is correctly structured."""
+        """Test that the request payload is correctly structured.
+
+        This test verifies the complete request structure including URL, headers,
+        and payload. It respects API_URL environment variable override if present,
+        which is the expected behavior during Docker integration tests.
+        """
         mock_response: MagicMock = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
@@ -232,8 +241,10 @@ class TestCallApiIntegration(unittest.TestCase):
         call_api(self.config)
 
         # Verify full request structure
+        # Note: get_api_url respects API_URL env var override (used in Docker tests)
+        expected_url: str = get_api_url(self.config)
         call_args = mock_post.call_args
-        self.assertEqual(call_args[0][0], self.config["api_url"])
+        self.assertEqual(call_args[0][0], expected_url)
 
         # Verify headers
         headers: Dict[str, str] = call_args[1]["headers"]

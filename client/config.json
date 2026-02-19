@@ -1,0 +1,14 @@
+{
+  "api_url": "https://stockmon.up.railway.app/check-alerts",
+  "silence_hours": 48,
+  "tickers": {
+    "AAPL": {
+      "buy": 170,
+      "sell": 190
+    },
+    "MSFT": {
+      "buy": 400,
+      "sell": 420
+    }
+  }
+}

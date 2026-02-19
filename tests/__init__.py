@@ -1,0 +1,1 @@
+"""StockMon - Test suite."""

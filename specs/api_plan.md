@@ -157,9 +157,16 @@ X-API-Key: tu-clave-secreta
 
 ## Testing
 
-### Estrategia
+### Estrategia de testing
 
-Mockear YFinance para tests determinísticos. Nunca llamar a Yahoo en tests.
+El proyecto incluye dos tipos de tests:
+
+1. **Tests unitarios con mocks**: Tests rápidos y determinísticos que mockean YFinance y otras dependencias externas
+2. **Tests de integración con Docker**: Tests que ejecutan la API real en un contenedor Docker y prueban el cliente contra el código real sin mocks
+
+### Tests unitarios (existentes)
+
+Mockear YFinance para tests determinísticos. Nunca llamar a Yahoo en tests unitarios.
 
 ### Fixtures (conftest.py)
 
@@ -202,14 +209,14 @@ def client_no_auth():
 - Mercado cerrado → `market_open: false`
 - Todos los tickers fallan → `service_degraded: true`
 
-### Ejecución
+### Ejecución de tests unitarios
 
 ```bash
 # Instalar dependencias de desarrollo
 pip install -r requirements-dev.txt
 
-# Ejecutar todos los tests
-pytest
+# Ejecutar todos los tests unitarios
+pytest tests/test_auth.py tests/test_alerts.py tests/test_stock.py -v
 
 # Con coverage
 pytest --cov=app --cov-report=term-missing
@@ -217,6 +224,60 @@ pytest --cov=app --cov-report=term-missing
 # Solo un archivo
 pytest tests/test_alerts.py -v
 ```
+
+### Tests de integración con Docker
+
+Los tests de integración ejecutan la API completa en un contenedor Docker y el cliente hace llamadas reales contra la API sin usar mocks.
+
+**Requisitos:**
+- Docker y Docker Compose instalados
+- Puerto 8000 disponible para la API
+
+**Estructura:**
+```
+stockmon/
+├── docker-compose.test.yml    # Configuración de Docker para tests
+├── Dockerfile.test             # Imagen de Docker para la API de test
+└── tests/
+    └── test_integration_docker.py  # Tests de integración contra Docker
+```
+
+**Docker Compose:**
+El archivo `docker-compose.test.yml` define:
+- Servicio `api`: Corre la API de StockMon en el puerto 8000
+- Variables de entorno: `API_KEY` configurada para tests
+- Health check: Verifica que la API esté lista antes de ejecutar tests
+
+**Tests:**
+Los tests de integración (`test_integration_docker.py`) verifican:
+- Cliente puede autenticarse contra la API real
+- API procesa requests completos correctamente
+- Manejo de errores end-to-end (401, 500, timeouts)
+- Respuestas con alertas, market_open, service_degraded
+- Flujo completo sin mocks
+
+**Ejecución:**
+
+```bash
+# Levantar API en Docker y ejecutar tests de integración
+docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit
+
+# O manualmente:
+# 1. Levantar la API
+docker-compose -f docker-compose.test.yml up -d api
+
+# 2. Ejecutar tests de integración
+pytest tests/test_integration_docker.py -v
+
+# 3. Detener contenedores
+docker-compose -f docker-compose.test.yml down
+```
+
+**Ventajas:**
+- Prueba el código real sin mocks
+- Detecta problemas de integración entre cliente y API
+- Valida el comportamiento completo end-to-end
+- Simula el entorno de producción más fielmente
 
 ## Development Setup
 

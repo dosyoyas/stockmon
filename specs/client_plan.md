@@ -141,9 +141,16 @@ API_URL=http://localhost:8000/check-alerts python client.py --dry-run
 
 ## Testing
 
-### Estrategia
+### Estrategia de testing
 
-Mockear llamadas HTTP a la API y el envío de emails. Nunca hacer llamadas reales en tests.
+El proyecto incluye dos tipos de tests para el cliente:
+
+1. **Tests unitarios con mocks**: Tests rápidos que mockean las llamadas HTTP a la API y el envío de emails
+2. **Tests de integración con Docker**: Tests que ejecutan el cliente contra una API real levantada en Docker, sin mocks de HTTP
+
+### Tests unitarios (existentes)
+
+Mockear llamadas HTTP a la API y el envío de emails. Nunca hacer llamadas reales en tests unitarios.
 
 ### Fixtures (conftest.py)
 
@@ -181,20 +188,40 @@ def temp_notified_file(tmp_path):
 - Alerta antigua (> silence_hours) → se notifica de nuevo
 - Limpieza de entradas antiguas funciona correctamente
 
-### Ejecución
+### Ejecución de tests unitarios
 
 ```bash
 # Instalar dependencias de desarrollo
 pip install -r requirements-dev.txt
 
-# Ejecutar todos los tests
-pytest
+# Ejecutar tests unitarios del cliente
+pytest tests/test_client.py tests/test_notified.py -v
 
 # Con coverage
-pytest --cov=. --cov-report=term-missing
+pytest tests/test_client.py tests/test_notified.py --cov=client --cov-report=term-missing
+```
 
-# Test específico
-pytest tests/test_client.py -v
+### Tests de integración con Docker
+
+Los tests de integración del cliente ejecutan llamadas reales contra la API levantada en Docker, sin mockear las requests HTTP. Los emails sí se mockean para evitar envíos reales.
+
+**Ver sección de "Tests de integración con Docker" en `api_plan.md`** para detalles de la configuración de Docker.
+
+**Tests del cliente:**
+Los tests de integración del cliente (`test_integration_docker.py`) verifican:
+- Cliente se conecta exitosamente a la API en Docker
+- Cliente maneja respuestas reales de la API (alertas, market_open, etc.)
+- Cliente maneja errores de autenticación (401)
+- Cliente maneja timeouts y errores de red
+- Flujo completo cliente → API sin mocks de HTTP
+
+**Ejecución:**
+
+```bash
+# Ejecutar tests de integración con Docker
+docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit
+
+# Los tests del cliente se ejecutan automáticamente después de que la API esté lista
 ```
 
 ### Testing manual contra API local

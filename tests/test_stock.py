@@ -271,6 +271,9 @@ class TestGet24hRange:
         mock_ticker_instance: MagicMock = mock_yfinance.return_value
         mock_ticker_instance.history.return_value = pd.DataFrame(data)
 
-        # Verify that InvalidTickerError is raised
-        with pytest.raises((InvalidTickerError, MarketClosedError)):
+        # Verify that InvalidTickerError is raised (missing required columns)
+        with pytest.raises(InvalidTickerError) as exc_info:
             get_24h_range("BADDATA")
+
+        # Verify error message mentions missing columns
+        assert "Missing required data columns" in str(exc_info.value)

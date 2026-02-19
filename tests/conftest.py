@@ -7,7 +7,8 @@ This module provides pytest fixtures for testing the StockMon API.
 # pylint: disable=W0621,C0415
 
 import os
-from typing import Dict, Generator
+from pathlib import Path
+from typing import Any, Dict, Generator
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -88,7 +89,8 @@ def app(test_api_key: str, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     # Import the app here to ensure environment variables are set first
     # This avoids import-time errors when the main app tries to read API_KEY
     try:
-        from app.main import app as fastapi_app  # type: ignore[import-not-found]
+        from app.main import \
+            app as fastapi_app  # type: ignore[import-not-found]
 
         return fastapi_app
     except ImportError:
@@ -250,3 +252,159 @@ def reset_environment() -> Generator[None, None, None]:
     # Restore original environment
     os.environ.clear()
     os.environ.update(original_env)
+
+
+@pytest.fixture
+def mock_api_response() -> Dict[str, Any]:
+    """
+    Provide a mock successful API response.
+
+    This fixture returns a dictionary representing a typical successful
+    response from the /check-alerts endpoint with alerts and no errors.
+
+    Returns:
+        Dict[str, Any]: A mock API response with alerts, errors, market status.
+
+    Example:
+        def test_api_handling(mock_api_response):
+            # Use mock_api_response as return value for mocked requests
+            assert len(mock_api_response["alerts"]) > 0
+            assert not mock_api_response["service_degraded"]
+    """
+    return {
+        "alerts": [
+            {
+                "ticker": "AAPL",
+                "type": "buy",
+                "threshold": 170.0,
+                "reached": 168.5,
+                "current": 172.3,
+            },
+            {
+                "ticker": "MSFT",
+                "type": "sell",
+                "threshold": 420.0,
+                "reached": 421.5,
+                "current": 419.8,
+            },
+        ],
+        "errors": [],
+        "market_open": True,
+        "service_degraded": False,
+        "checked_at": "2024-02-06T14:30:00Z",
+    }
+
+
+@pytest.fixture
+def mock_api_degraded() -> Dict[str, Any]:
+    """
+    Provide a mock degraded API response.
+
+    This fixture returns a dictionary representing an API response when
+    the service is degraded (e.g., YFinance is not working properly).
+    It contains errors for all tickers and no alerts.
+
+    Returns:
+        Dict[str, Any]: A mock API response indicating service degradation.
+
+    Example:
+        def test_degraded_handling(mock_api_degraded):
+            assert mock_api_degraded["service_degraded"]
+            assert len(mock_api_degraded["errors"]) > 0
+            assert len(mock_api_degraded["alerts"]) == 0
+    """
+    return {
+        "alerts": [],
+        "errors": [
+            {"ticker": "AAPL", "error": "Failed to fetch data from YFinance"},
+            {"ticker": "MSFT", "error": "Failed to fetch data from YFinance"},
+        ],
+        "market_open": True,
+        "service_degraded": True,
+        "checked_at": "2024-02-06T14:30:00Z",
+    }
+
+
+@pytest.fixture
+def mock_smtp() -> Generator[MagicMock, None, None]:
+    """
+    Mock SMTP server for email sending tests.
+
+    This fixture mocks the smtplib.SMTP class to avoid sending real emails
+    during tests. It provides a configured mock that simulates successful
+    SMTP connections, authentication, and message sending.
+
+    Yields:
+        MagicMock: A mocked SMTP class with context manager support.
+
+    Example:
+        def test_email_sending(mock_smtp):
+            # SMTP is already mocked, send_email will not send real emails
+            from client.email import send_email, EmailConfig
+            config = EmailConfig(
+                smtp_host="smtp.test.com",
+                smtp_user="user@test.com",
+                smtp_pass="test_pass",
+                notify_email="notify@test.com"
+            )
+            send_email(config, "Test", "Test body")
+            # Verify mock was called
+            mock_smtp.assert_called_once()
+    """
+    with patch("smtplib.SMTP") as mock_smtp_class:
+        # Create a mock server instance that will be returned by the context manager
+        mock_server: MagicMock = MagicMock()
+
+        # Configure the SMTP class to return our mock server when used as context manager
+        mock_smtp_class.return_value.__enter__.return_value = mock_server
+        mock_smtp_class.return_value.__exit__.return_value = None
+
+        # Configure mock server methods
+        mock_server.starttls.return_value = None
+        mock_server.login.return_value = None
+        mock_server.send_message.return_value = {}
+
+        yield mock_smtp_class
+
+
+@pytest.fixture
+def temp_notified_file(tmp_path: Path) -> Generator[Path, None, None]:
+    """
+    Provide a temporary notified.json file for testing.
+
+    This fixture creates a temporary directory with a notified.json file
+    that can be used for testing notification tracking functionality.
+    The file is automatically cleaned up after the test completes.
+
+    Args:
+        tmp_path: Pytest's built-in temporary directory fixture.
+
+    Yields:
+        Path: Path to the temporary notified.json file.
+
+    Example:
+        def test_notification_tracking(temp_notified_file):
+            # Write notification data
+            with open(temp_notified_file, "w") as f:
+                json.dump({"AAPL:buy": time.time()}, f)
+
+            # Read it back
+            with open(temp_notified_file, "r") as f:
+                data = json.load(f)
+            assert "AAPL:buy" in data
+    """
+    # Create a temporary notified.json file
+    notified_file: Path = tmp_path / "notified.json"
+
+    # Initialize with empty JSON object
+    notified_file.write_text("{}", encoding="utf-8")
+
+    # Patch the client.notified module to use this temp file
+    with patch("client.notified.Path") as mock_path_class:
+        # When Path(__file__).parent.resolve() is called in client.notified,
+        # return the tmp_path directory
+        mock_path_instance: MagicMock = MagicMock()
+        mock_path_instance.parent.resolve.return_value = tmp_path
+        mock_path_class.return_value = mock_path_instance
+
+        yield notified_file

@@ -32,12 +32,23 @@ class TestMainDryRunIntegration(unittest.TestCase):
     @patch("pathlib.Path.exists")
     @patch("builtins.open", new_callable=mock_open)
     @patch("sys.argv", ["client.main"])
+    @patch("client.main.call_api")
+    @patch.dict("os.environ", {"API_KEY": "test-api-key-12345"})
     def test_main_production_mode_default(
-        self, mock_file: MagicMock, mock_exists: MagicMock
+        self, mock_call_api: MagicMock, mock_file: MagicMock, mock_exists: MagicMock
     ) -> None:
         """Test that main() runs in production mode by default."""
         mock_exists.return_value = True
         mock_file.return_value.read.return_value = self.config_json
+
+        # Mock successful API response
+        mock_call_api.return_value = {
+            "alerts": [],
+            "errors": [],
+            "market_open": True,
+            "service_degraded": False,
+            "checked_at": "2024-02-06T14:30:00Z",
+        }
 
         # Capture stdout
         captured_output: StringIO = StringIO()
@@ -54,12 +65,23 @@ class TestMainDryRunIntegration(unittest.TestCase):
     @patch("pathlib.Path.exists")
     @patch("builtins.open", new_callable=mock_open)
     @patch("sys.argv", ["client.main", "--dry-run"])
+    @patch("client.main.call_api")
+    @patch.dict("os.environ", {"API_KEY": "test-api-key-12345"})
     def test_main_dry_run_mode(
-        self, mock_file: MagicMock, mock_exists: MagicMock
+        self, mock_call_api: MagicMock, mock_file: MagicMock, mock_exists: MagicMock
     ) -> None:
         """Test that main() runs in dry-run mode when --dry-run flag is provided."""
         mock_exists.return_value = True
         mock_file.return_value.read.return_value = self.config_json
+
+        # Mock successful API response
+        mock_call_api.return_value = {
+            "alerts": [],
+            "errors": [],
+            "market_open": True,
+            "service_degraded": False,
+            "checked_at": "2024-02-06T14:30:00Z",
+        }
 
         # Capture stdout
         captured_output: StringIO = StringIO()
@@ -77,12 +99,23 @@ class TestMainDryRunIntegration(unittest.TestCase):
     @patch("pathlib.Path.exists")
     @patch("builtins.open", new_callable=mock_open)
     @patch("sys.argv", ["client.main"])
+    @patch("client.main.call_api")
+    @patch.dict("os.environ", {"API_KEY": "test-api-key-12345"})
     def test_main_displays_all_config(
-        self, mock_file: MagicMock, mock_exists: MagicMock
+        self, mock_call_api: MagicMock, mock_file: MagicMock, mock_exists: MagicMock
     ) -> None:
         """Test that main() displays complete configuration."""
         mock_exists.return_value = True
         mock_file.return_value.read.return_value = self.config_json
+
+        # Mock successful API response
+        mock_call_api.return_value = {
+            "alerts": [],
+            "errors": [],
+            "market_open": True,
+            "service_degraded": False,
+            "checked_at": "2024-02-06T14:30:00Z",
+        }
 
         # Capture stdout
         captured_output: StringIO = StringIO()
@@ -103,14 +136,29 @@ class TestMainDryRunIntegration(unittest.TestCase):
     @patch("pathlib.Path.exists")
     @patch("builtins.open", new_callable=mock_open)
     @patch("sys.argv", ["client.main", "--dry-run"])
-    @patch("os.environ.get")
+    @patch("client.main.call_api")
+    @patch.dict(
+        "os.environ",
+        {
+            "API_KEY": "test-api-key-12345",
+            "API_URL": "http://localhost:8000/check-alerts",
+        },
+    )
     def test_main_dry_run_with_api_url_override(
-        self, mock_env_get: MagicMock, mock_file: MagicMock, mock_exists: MagicMock
+        self, mock_call_api: MagicMock, mock_file: MagicMock, mock_exists: MagicMock
     ) -> None:
         """Test dry-run mode with API_URL environment variable override."""
         mock_exists.return_value = True
         mock_file.return_value.read.return_value = self.config_json
-        mock_env_get.return_value = "http://localhost:8000/check-alerts"
+
+        # Mock successful API response
+        mock_call_api.return_value = {
+            "alerts": [],
+            "errors": [],
+            "market_open": True,
+            "service_degraded": False,
+            "checked_at": "2024-02-06T14:30:00Z",
+        }
 
         # Capture stdout
         captured_output: StringIO = StringIO()

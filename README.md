@@ -240,6 +240,78 @@ pytest tests/test_main.py -v
   - Use real or simulated external services
   - Validate end-to-end workflows
 
+### Docker Integration Tests
+
+Run integration tests against a real API instance in Docker. This tests the complete system without mocks.
+
+**Prerequisites:**
+- Docker and Docker Compose installed and running
+- No other service using port 8000
+
+**Usage:**
+
+```bash
+# Start the API in Docker (builds and runs in background)
+docker-compose -f docker-compose.test.yml up -d --build
+
+# Wait for API to become healthy (check with docker ps or logs)
+docker-compose -f docker-compose.test.yml logs -f api
+
+# Run Docker integration tests
+python -m unittest tests.test_integration_docker
+
+# Or with pytest
+pytest tests/test_integration_docker.py -v
+
+# Stop and clean up Docker containers
+docker-compose -f docker-compose.test.yml down -v
+```
+
+**Quick one-liner (start, test, cleanup):**
+```bash
+docker-compose -f docker-compose.test.yml up -d --build && \
+  sleep 10 && \
+  pytest tests/test_integration_docker.py -v && \
+  docker-compose -f docker-compose.test.yml down -v
+```
+
+**What gets tested:**
+- Real API authentication (X-API-Key header)
+- Actual YFinance stock data fetching
+- Complete request/response flow
+- Error handling for invalid tickers
+- Market hours detection
+- Service health and degradation status
+- Timeout handling
+- Multi-ticker parallel processing
+
+**Troubleshooting:**
+
+| Issue | Solution |
+|-------|----------|
+| Port 8000 already in use | Stop other services: `lsof -ti:8000 \| xargs kill -9` or use different port in docker-compose.test.yml |
+| Container fails to start | Check logs: `docker-compose -f docker-compose.test.yml logs api` |
+| Tests timeout | Ensure Docker has internet access for YFinance API calls |
+| API not healthy | Wait longer (up to 60s) or rebuild: `docker-compose -f docker-compose.test.yml up -d --build --force-recreate` |
+| Tests fail with 401 | API_KEY mismatch; default is `test-api-key-12345` in both docker-compose.test.yml and test file |
+
+**Configuration:**
+
+Override the API key:
+```bash
+API_KEY=custom-key docker-compose -f docker-compose.test.yml up -d
+```
+
+View container status:
+```bash
+docker-compose -f docker-compose.test.yml ps
+```
+
+Check API health directly:
+```bash
+curl http://localhost:8000/health
+```
+
 ## API Endpoints
 
 ### POST /check-alerts

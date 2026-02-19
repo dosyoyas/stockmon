@@ -8,11 +8,12 @@ This module implements the client-side logic for StockMon, which:
 - Tracks notified alerts to prevent spam
 """
 
+import argparse
 import json
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 
 def load_config() -> Dict[str, Any]:
@@ -102,20 +103,74 @@ def get_api_url(config: Dict[str, Any]) -> str:
     return config["api_url"]
 
 
+def parse_arguments(args: Optional[List[str]] = None) -> argparse.Namespace:
+    """
+    Parse command-line arguments for the StockMon client.
+
+    Args:
+        args: List of command-line arguments. If None, uses sys.argv[1:].
+              This parameter allows for testing without modifying sys.argv.
+
+    Returns:
+        argparse.Namespace: Parsed arguments with the following attributes:
+            - dry_run (bool): If True, print to stdout instead of sending emails
+              and don't update notified.json.
+
+    Example:
+        # Normal execution (production mode)
+        parsed = parse_arguments()
+        if parsed.dry_run:
+            print("Running in dry-run mode")
+
+        # Dry-run mode for testing
+        parsed = parse_arguments(["--dry-run"])
+        assert parsed.dry_run is True
+    """
+    parser: argparse.ArgumentParser = argparse.ArgumentParser(
+        description="StockMon Client - Monitor stock alerts and send email notifications",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Normal execution (production mode)
+  python -m client.main
+
+  # Dry-run mode (print to stdout, don't send emails, don't update notified.json)
+  python -m client.main --dry-run
+
+  # Test against local API
+  API_URL=http://localhost:8000/check-alerts python -m client.main --dry-run
+        """,
+    )
+
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        help="Dry-run mode: print notifications to stdout instead of sending emails, "
+        "and don't update notified.json",
+    )
+
+    return parser.parse_args(args)
+
+
 def main() -> int:
     """
     Main entry point for StockMon client.
 
     This function orchestrates the client workflow:
-    1. Load configuration from config.json
-    2. Get API URL (with optional environment variable override)
-    3. Display loaded configuration
-    4. (Future) Call API, process alerts, send notifications
+    1. Parse command-line arguments
+    2. Load configuration from config.json
+    3. Get API URL (with optional environment variable override)
+    4. Display loaded configuration
+    5. (Future) Call API, process alerts, send notifications
 
     Returns:
         int: Exit code (0 for success, 1 for error).
     """
     try:
+        # Parse command-line arguments
+        args: argparse.Namespace = parse_arguments()
+
         # Load configuration
         config: Dict[str, Any] = load_config()
         api_url: str = get_api_url(config)
@@ -125,6 +180,9 @@ def main() -> int:
         print(f"  API URL: {api_url}")
         print(f"  Silence Hours: {config['silence_hours']}")
         print(f"  Tickers: {len(config['tickers'])} configured")
+        print(
+            f"  Mode: {'DRY-RUN (no emails, no notified.json updates)' if args.dry_run else 'PRODUCTION'}"
+        )
         print()
 
         # Display ticker configuration
